@@ -30,10 +30,10 @@ export const chatGroupParticipants = pgTable(
   {
     chatGroupId: text("chat_group_id")
       .notNull()
-      .references(() => chatGroup.id),
+      .references(() => chatGroup.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -2,58 +2,30 @@ import Elysia, { t } from "elysia";
 import { setup } from "../../setup";
 import { userInsertSchema, userSelectSchema } from "../user/user.model";
 import { restErrorType } from "../../types/error";
+import { isAuthenticated } from "../auth/isAuthenticated.middleware";
+import {
+  createChatGroup,
+  getChatGroupsWithParticipants,
+} from "./chat-group.service";
+import { chatGroupCreationSchema } from "./types";
+import { chatGroupSelectTSchema } from "./chat-group.model";
 
-export const authController = new Elysia()
-    .use(setup)
-    .post(
-        "/sign-up",
-        async ({ body, set }) => {
-            try {
-                const user = await createUser(body);
-                set.status = "Created";
-                return user;
-            } catch (err) {
-                set.status = "Conflict";
-                return {
-                    status: 409,
-                    code: "Conflict",
-                    message: "username already exists",
-                };
-            }
-        },
-        {
-            body: userInsertSchema,
-            response: {
-                201: userSelectSchema,
-                409: restErrorType,
-            },
-        }
-    )
-    .post(
-        "/sign-in",
-        async ({ body, jwt, set }) => {
-            try {
-                const user = await getUserAndVerifyPassword(body);
-                set.status = "OK";
-                return {
-                    token: await jwt.sign(user),
-                };
-            } catch (err) {
-                set.status = "Unauthorized";
-                return {
-                    status: 401,
-                    code: "Unauthorized",
-                    message: "Invalid login",
-                };
-            }
-        },
-        {
-            body: userInsertSchema,
-            response: {
-                200: t.Object({
-                    token: t.String(),
-                }),
-                401: restErrorType,
-            },
-        }
-    );
+export const chatGroupController = new Elysia({ prefix: "chat-group" })
+  .use(isAuthenticated)
+  .post(
+    "/",
+    async ({ body, set, user }) => {
+      const createdChatGroup = await createChatGroup(user?.id as string, body);
+      set.status = "Created";
+      return createdChatGroup;
+    },
+    {
+      body: chatGroupCreationSchema,
+      response: {
+        201: chatGroupSelectTSchema,
+      },
+    }
+  )
+  .get("/", async ({ user }) => {
+    return await getChatGroupsWithParticipants(user?.id as string);
+  });

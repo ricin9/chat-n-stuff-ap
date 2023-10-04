@@ -1,42 +1,64 @@
-import { t } from "elysia";
-import { user, userInsertSchema, userSelectSchema } from "../user/user.model";
-import { Static } from "@sinclair/typebox";
 import { db } from "../../lib/database";
-import { eq, getTableColumns } from "drizzle-orm";
+import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import {
   chatGroup,
-  chatGroupInsertSchema,
   chatGroupParticipants,
   chatGroupSelectSchema,
 } from "./chat-group.model";
+import { ChatGroupCreationSchema } from "./types";
+import { alias } from "drizzle-orm/pg-core";
+import { user } from "../user/user.model";
 
 export async function createChatGroup(
   userCreatorId: string,
-  body: chatGroupInsertSchema
+  body: ChatGroupCreationSchema
 ): Promise<chatGroupSelectSchema> {
   let createdChatGroup = await db.transaction(async (tx) => {
     const [createdChatGroup] = await tx
       .insert(chatGroup)
-      .values(body)
+      .values({ name: body.name })
       .returning();
 
-    await db.insert(chatGroupParticipants).values({
-      chatGroupId: createdChatGroup.id,
-      userId: userCreatorId,
-    });
+    const participants = [
+      { chatGroupId: createdChatGroup.id, userId: userCreatorId },
+    ];
+
+    for (const participant of body.participants || []) {
+      participants.push({
+        chatGroupId: createdChatGroup.id,
+        userId: participant,
+      });
+    }
+
+    console.log(participants);
+
+    await tx.insert(chatGroupParticipants).values(participants);
     return createdChatGroup;
   });
 
   return createdChatGroup;
 }
 
-export async function getChatGroupsForParticipant(
-  userParticipantId: string
-): Promise<chatGroupSelectSchema[]> {
-  let chatGroups = await db
-    .select({ ...getTableColumns(chatGroup) })
-    .from(chatGroupParticipants)
-    .innerJoin(chatGroup, eq(chatGroup.id, chatGroupParticipants.chatGroupId))
-    .where(eq(chatGroupParticipants.userId, userParticipantId));
-  return chatGroups;
+export async function getChatGroupsWithParticipants(currentUserId: string) {
+  const currentUserParticipant = alias(
+    chatGroupParticipants,
+    "current_user_participant"
+  );
+  return await db
+    .select({
+      ...getTableColumns(chatGroup),
+      participants: sql`array_agg(JSON_OBJECT('id':${user.id}, 'username':${user.username}))`,
+    })
+    // get chatrooms that current user is participating in
+    .from(currentUserParticipant)
+    .innerJoin(chatGroup, eq(chatGroup.id, currentUserParticipant.chatGroupId))
+
+    //get list of all other for select participants
+    .innerJoin(
+      chatGroupParticipants,
+      eq(chatGroup.id, chatGroupParticipants.chatGroupId)
+    )
+    .innerJoin(user, eq(user.id, chatGroupParticipants.userId))
+    .where(eq(currentUserParticipant.userId, currentUserId))
+    .groupBy(chatGroup.id);
 }
