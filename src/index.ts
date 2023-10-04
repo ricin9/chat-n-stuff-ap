@@ -8,6 +8,7 @@ import { websocketServer } from "./modules/ws/ws";
 import { logger } from "@bogeychan/elysia-logger";
 import { server } from "./server";
 import { chatGroupController } from "./modules/chat-group/chat-group.controller";
+import { chatGroupMessageController } from "./modules/chat-message/chat-group-message.controller";
 
 await migrateDatabase();
 
@@ -21,6 +22,7 @@ export const app = new Elysia()
   )
   .group("/auth", (app) => app.use(authController))
   .use(chatGroupController)
+  .use(chatGroupMessageController)
   .use(websocketServer)
   .get(
     "/get-token",

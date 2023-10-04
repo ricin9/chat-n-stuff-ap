@@ -17,3 +17,15 @@ export function getClient(userId: string): WsClient | undefined {
 export function removeClient(userId: string) {
   wsClients.delete(userId);
 }
+
+export function subscribeUsersToChatGroup(
+  chatGroupId: string,
+  users: string[]
+) {
+  for (const user of users) {
+    const client = getClient(user);
+    if (client) {
+      client.subscribe(chatGroupId);
+    }
+  }
+}

@@ -8,18 +8,20 @@ import {
 import { ChatGroupCreationSchema } from "./types";
 import { alias } from "drizzle-orm/pg-core";
 import { user } from "../user/user.model";
+import { subscribeUsersToChatGroup } from "../ws/ws-clients-ma";
 
 export async function createChatGroup(
   userCreatorId: string,
   body: ChatGroupCreationSchema
 ): Promise<chatGroupSelectSchema> {
+  let participants;
   let createdChatGroup = await db.transaction(async (tx) => {
     const [createdChatGroup] = await tx
       .insert(chatGroup)
       .values({ name: body.name })
       .returning();
 
-    const participants = [
+    participants = [
       { chatGroupId: createdChatGroup.id, userId: userCreatorId },
     ];
 
@@ -35,6 +37,11 @@ export async function createChatGroup(
     await tx.insert(chatGroupParticipants).values(participants);
     return createdChatGroup;
   });
+
+  subscribeUsersToChatGroup(createdChatGroup.id, [
+    ...(body.participants || []),
+    userCreatorId,
+  ]);
 
   return createdChatGroup;
 }
