@@ -5,6 +5,7 @@ import { restErrorType } from "../../types/error";
 import { isAuthenticated } from "../auth/isAuthenticated.middleware";
 import {
   createChatGroup,
+  getChatGroupIds,
   getChatGroupsWithParticipants,
 } from "./chat-group.service";
 import { chatGroupCreationSchema } from "./types";

@@ -8,7 +8,7 @@ import {
 import { ChatGroupCreationSchema } from "./types";
 import { alias } from "drizzle-orm/pg-core";
 import { user } from "../user/user.model";
-import { subscribeUsersToChatGroup } from "../ws/ws-clients-ma";
+import { subscribeUsersToChatGroup } from "../ws/ws-sessions-map";
 
 export async function createChatGroup(
   userCreatorId: string,
@@ -68,4 +68,19 @@ export async function getChatGroupsWithParticipants(currentUserId: string) {
     .innerJoin(user, eq(user.id, chatGroupParticipants.userId))
     .where(eq(currentUserParticipant.userId, currentUserId))
     .groupBy(chatGroup.id);
+}
+
+export async function getChatGroupIds(currentUserId: string) {
+  const [{ chatGroupIds }] = await db
+    .select({
+      chatGroupIds: sql<string[]>`array_agg(${chatGroup.id})`,
+    })
+    .from(chatGroup)
+    .innerJoin(
+      chatGroupParticipants,
+      eq(chatGroup.id, chatGroupParticipants.chatGroupId)
+    )
+    .where(eq(chatGroupParticipants.userId, currentUserId));
+
+  return chatGroupIds;
 }
